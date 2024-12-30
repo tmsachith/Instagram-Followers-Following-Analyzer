@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,24 +8,24 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background-color: #fafafa;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
         .container {
-            background-color: white;
+            background-color: var(--bs-body-bg);
             border-radius: 10px;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
             padding: 30px;
             margin-top: 50px;
             margin-bottom: 50px;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
         }
         h1 {
             color: #405de6;
             font-weight: bold;
         }
         .file-input-container {
-            background-color: #f8f9fa;
-            border: 2px dashed #dee2e6;
+            background-color: var(--bs-secondary-bg);
+            border: 2px dashed var(--bs-border-color);
             border-radius: 5px;
             padding: 20px;
             text-align: center;
@@ -47,6 +47,8 @@
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 20px;
+            background-color: var(--bs-body-bg);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
         }
         .result-card .card-header {
             background-color: #405de6;
@@ -66,9 +68,20 @@
             background-color: #405de6;
             border-radius: 5px;
         }
+        .dark-mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
+    <div class="dark-mode-toggle">
+        <button id="darkModeToggle" class="btn btn-outline-primary">
+            <i class="fas fa-moon"></i> Toggle Dark Mode
+        </button>
+    </div>
     <div class="container">
         <h1 class="text-center mb-5"><i class="fab fa-instagram me-2"></i>Instagram Follower Analyzer</h1>
         
@@ -97,6 +110,14 @@
             </button>
         </div>
         
+        <div id="statistics" class="alert alert-info mb-4" style="display: none;">
+            <h4 class="alert-heading">Statistics</h4>
+            <p>Total Followers: <span id="totalFollowers">0</span></p>
+            <p>Total Following: <span id="totalFollowing">0</span></p>
+            <p>Not Following Back: <span id="totalNotFollowingBack">0</span></p>
+            <p>Percentage Not Following Back: <span id="percentageNotFollowingBack">0%</span></p>
+        </div>
+
         <div class="row">
             <div class="col-md-4 mb-4">
                 <div class="card result-card">
@@ -104,6 +125,7 @@
                         <i class="fas fa-users me-2"></i>Followers (<span id="followersCount">0</span>)
                     </div>
                     <div class="card-body">
+                        <input type="text" class="form-control mb-2 search-input" placeholder="Search followers" data-list="followersList">
                         <ul id="followersList" class="list-group list-group-flush result-list"></ul>
                     </div>
                 </div>
@@ -114,6 +136,7 @@
                         <i class="fas fa-user-friends me-2"></i>Following (<span id="followingCount">0</span>)
                     </div>
                     <div class="card-body">
+                        <input type="text" class="form-control mb-2 search-input" placeholder="Search following" data-list="followingList">
                         <ul id="followingList" class="list-group list-group-flush result-list"></ul>
                     </div>
                 </div>
@@ -124,6 +147,7 @@
                         <i class="fas fa-user-slash me-2"></i>Not Following Back (<span id="notFollowingBackCount">0</span>)
                     </div>
                     <div class="card-body">
+                        <input type="text" class="form-control mb-2 search-input" placeholder="Search not following back" data-list="notFollowingBackList">
                         <ul id="notFollowingBackList" class="list-group list-group-flush result-list"></ul>
                     </div>
                 </div>
@@ -195,7 +219,55 @@
             });
 
             document.getElementById('notFollowingBackCount').textContent = notFollowingBack.size;
+            updateStatistics(followers.size, following.size, notFollowingBack.size);
         }
+
+        function updateStatistics(followersCount, followingCount, notFollowingBackCount) {
+            document.getElementById('totalFollowers').textContent = followersCount;
+            document.getElementById('totalFollowing').textContent = followingCount;
+            document.getElementById('totalNotFollowingBack').textContent = notFollowingBackCount;
+            const percentage = ((notFollowingBackCount / followingCount) * 100).toFixed(2);
+            document.getElementById('percentageNotFollowingBack').textContent = `${percentage}%`;
+            document.getElementById('statistics').style.display = 'block';
+        }
+
+        // Search functionality
+        document.querySelectorAll('.search-input').forEach(input => {
+            input.addEventListener('input', function() {
+                const listId = this.getAttribute('data-list');
+                const list = document.getElementById(listId);
+                const filter = this.value.toLowerCase();
+                const items = list.getElementsByTagName('li');
+
+                for (let i = 0; i < items.length; i++) {
+                    const username = items[i].textContent.toLowerCase();
+                    if (username.includes(filter)) {
+                        items[i].style.display = '';
+                    } else {
+                        items[i].style.display = 'none';
+                    }
+                }
+            });
+        });
+
+        // Dark mode toggle
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        darkModeToggle.addEventListener('click', function() {
+            document.documentElement.setAttribute('data-bs-theme', 
+                document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark'
+            );
+            updateDarkModeButtonText();
+        });
+
+        function updateDarkModeButtonText() {
+            const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            darkModeToggle.innerHTML = isDarkMode ? 
+                '<i class="fas fa-sun"></i> Toggle Light Mode' : 
+                '<i class="fas fa-moon"></i> Toggle Dark Mode';
+        }
+
+        // Initialize dark mode button text
+        updateDarkModeButtonText();
     </script>
 </body>
 </html>
