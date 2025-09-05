@@ -85,6 +85,16 @@
     <div class="container">
         <h1 class="text-center mb-5"><i class="fab fa-instagram me-2"></i>Instagram Follower Analyzer</h1>
         
+        <div class="alert alert-info mb-4">
+            <h5><i class="fas fa-info-circle me-2"></i>How to use:</h5>
+            <ol class="mb-0">
+                <li>Download your Instagram followers and following data from Instagram's "Download Your Information" feature</li>
+                <li>Extract the HTML files from the downloaded zip</li>
+                <li>Upload the followers.html and following.html files below</li>
+                <li>Click "Analyze" to see who doesn't follow you back</li>
+            </ol>
+        </div>
+        
         <div class="row mb-4">
             <div class="col-md-6 mb-3">
                 <div class="file-input-container">
@@ -159,17 +169,33 @@
         let followers = new Set();
         let following = new Set();
 
+        let filesProcessed = 0;
+        let totalFiles = 2;
+
         document.getElementById('analyzeButton').addEventListener('click', function() {
             const followersFile = document.getElementById('followersFile').files[0];
             const followingFile = document.getElementById('followingFile').files[0];
             
             if (followersFile && followingFile) {
-                analyzeFile(followersFile, 'followersList', 'followersCount', followers);
-                analyzeFile(followingFile, 'followingList', 'followingCount', following, findNotFollowingBack);
+                // Clear previous data
+                followers.clear();
+                following.clear();
+                filesProcessed = 0;
+                
+                console.log('Starting analysis...');
+                analyzeFile(followersFile, 'followersList', 'followersCount', followers, checkComplete);
+                analyzeFile(followingFile, 'followingList', 'followingCount', following, checkComplete);
             } else {
                 alert('Please select both files.');
             }
         });
+
+        function checkComplete() {
+            filesProcessed++;
+            if (filesProcessed === totalFiles) {
+                findNotFollowingBack();
+            }
+        }
 
         function analyzeFile(file, listId, countId, userSet, callback) {
             const reader = new FileReader();
@@ -178,28 +204,71 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(content, 'text/html');
                 
-                const mainDivs = doc.querySelectorAll('div._a706');
+                // Try both old and new selectors to be compatible with different formats
+                let userDivs = doc.querySelectorAll('div.pam._3-95._2ph-._a6-g.uiBoxWhite.noborder');
+                
+                // If no results with old format, try space-separated classes (new format)
+                if (userDivs.length === 0) {
+                    userDivs = doc.querySelectorAll('div[class*="pam"][class*="_3-95"][class*="_2ph-"][class*="_a6-g"][class*="uiBoxWhite"][class*="noborder"]');
+                }
+                
+                console.log(`Found ${userDivs.length} user divs in ${file.name}`);
+                
                 const list = document.getElementById(listId);
                 list.innerHTML = ''; // Clear previous results
                 let count = 0;
                 
-                mainDivs.forEach(div => {
-                    const innerDivs = div.querySelectorAll('div.pam._3-95._2ph-._a6-g.uiBoxWhite.noborder');
-                    innerDivs.forEach(innerDiv => {
-                        const username = innerDiv.querySelector('a').textContent;
-                        const timestamp = innerDiv.querySelector('div > div:nth-child(2)').textContent;
+                userDivs.forEach((userDiv, index) => {
+                    try {
+                        // Try multiple selector patterns for username
+                        let usernameElement = userDiv.querySelector('._a6-p a');
+                        if (!usernameElement) {
+                            usernameElement = userDiv.querySelector('a[href*="instagram.com"]');
+                        }
+                        if (!usernameElement) {
+                            usernameElement = userDiv.querySelector('a');
+                        }
                         
-                        userSet.add(username);
+                        // Try multiple selector patterns for timestamp
+                        let timestampElement = userDiv.querySelector('._a6-p > div > div:nth-child(2)');
+                        if (!timestampElement) {
+                            timestampElement = userDiv.querySelector('div > div:nth-child(2)');
+                        }
+                        if (!timestampElement) {
+                            // Look for any div containing date-like text
+                            const divs = userDiv.querySelectorAll('div');
+                            for (let div of divs) {
+                                if (div.textContent && (div.textContent.includes('2024') || div.textContent.includes('2025') || div.textContent.includes('am') || div.textContent.includes('pm'))) {
+                                    timestampElement = div;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (usernameElement) {
+                            const username = usernameElement.textContent.trim();
+                            const timestamp = timestampElement ? timestampElement.textContent.trim() : 'Unknown date';
+                            
+                            // Skip empty usernames
+                            if (username) {
+                                userSet.add(username);
 
-                        const li = document.createElement('li');
-                        li.className = 'list-group-item';
-                        li.innerHTML = `<strong>${username}</strong> <small class="text-muted">${timestamp}</small>`;
-                        list.appendChild(li);
-                        count++;
-                    });
+                                const li = document.createElement('li');
+                                li.className = 'list-group-item';
+                                li.innerHTML = `<strong>${username}</strong> <small class="text-muted">${timestamp}</small>`;
+                                list.appendChild(li);
+                                count++;
+                            }
+                        } else {
+                            console.log(`No username found in div ${index}`);
+                        }
+                    } catch (error) {
+                        console.log('Error processing user div:', error);
+                    }
                 });
                 
                 document.getElementById(countId).textContent = count;
+                console.log(`Successfully processed ${count} users for ${listId}`);
 
                 if (callback) callback();
             };
